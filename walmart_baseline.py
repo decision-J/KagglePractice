@@ -6,6 +6,7 @@ import numpy as np
 import keras
 from keras.utils.np_utils import to_categorical
 import matplotlib.pyplot as plt
+from keras.wrappers.scikit_learn import KerasClassifier
 
 train = pd.read_csv("C:/Users/JYW/OneDrive - 연세대학교 (Yonsei University)/유용코드/2020 Learning from TOP Kegglers/Recommeded Competitions/walmart/train.csv")
 test = pd.read_csv("C:/Users/JYW/OneDrive - 연세대학교 (Yonsei University)/유용코드/2020 Learning from TOP Kegglers/Recommeded Competitions/walmart/test.csv")
@@ -18,11 +19,13 @@ del train["Upc"]
 del test["Upc"]
 
 ## 2. DepartmentDescription와 FinelineNumber의 NA제거
+## test set은 mode로 대체
 train.isnull().sum()
 train = train.dropna()
 
 test.isnull().sum()
-test = test.dropna()
+train[["VisitNumber",'FinelineNumber']].groupby("FinelineNumber").count()
+test = test.fillna(0.0)
 
 ## 3. 범주형 변수 처리
 ### 3-1. 요일은 주중, 주말로.
@@ -88,13 +91,21 @@ test.head()
 ## 1. 데이터 나누기 (X, y)
 del train["VisitNumber"]
 del test["VisitNumber"]
-train["TripType"] = train["TripType"].apply(lambda x: -1 if x==999 else x)
 
 x_train = train.loc[:, train.columns != 'TripType']
 x_test = test.loc[:, test.columns != 'TripType']
 
 train_labels = train.loc[:, train.columns == 'TripType']
-one_hot_train_labels = to_categorical(train_labels)
+rank = pd.DataFrame()
+rank["TripType"] = train["TripType"].unique()
+rank["rank"] = rank.iloc[:].rank(ascending=True)
+
+train_labels = pd.merge(train_labels, rank, on=["TripType"], how="left")
+del train_labels["TripType"]
+train_labels = train_labels - 1
+
+one_hot_train_labels = to_categorical(train_labels, num_classes=38)
+one_hot_train_labels.shape
 
 ## 2. 데이터 정규화 for DL
 mean = x_train.mean(axis=0)
@@ -106,20 +117,17 @@ x_test -= mean
 x_test /= std
 ## test data를 정규화 시킬 때도 train data의 mean과 std를 사용해서 한다!
 
-## 3. 검증 세트 만들기
-
 
 ## 3. modeling
 ### def model
 from keras import models
 from keras import layers
-one_hot_train_labels.shape
 
 def build_model():
     model = models.Sequential()
     model.add(layers.Dense(64, activation='relu', input_shape=(x_train.shape[1],)))
     model.add(layers.Dense(64, activation='relu'))
-    model.add(layers.Dense(45, activation='softmax'))
+    model.add(layers.Dense(38, activation='softmax'))
 
     model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
@@ -148,27 +156,31 @@ for i in range(k):
 
     # 케라스 모델 구성(컴파일 포함)
     model = build_model()
-    # 모델 훈련(verbose=0 이므로 훈련 과정이 출력되지 않습니다)
+
     history = model.fit(partial_x_train, partial_train_targets,
                         validation_data=(val_data, val_targets),
-                        epochs=num_epochs, batch_size=1, verbose=0)
+                        epochs=num_epochs, batch_size=128, verbose=0)
     acc_history = history.history['val_accuracy']
     all_acc_histories.append(acc_history)
     print(i, ' 폴드 끝남')
 
-
+### Score check
 average_acc_history = [
     np.mean([x[i] for x in all_acc_histories]) for i in range(num_epochs)]
-
-import matplotlib.pyplot as plt
 
 plt.plot(range(1, len(average_acc_history) + 1), average_acc_history)
 plt.xlabel('Epochs')
 plt.ylabel('Validation ACC')
 plt.show()
 
-model = KerasClassifier(build_fn=build_model, nb_epoch=200, batch_size=5, verbose=0)
-model.fit(x_train, one_hot_train_labels,
-          epochs=80, batch_size=64, verbose=0)
+### Fit the model
+model = KerasClassifier(build_fn=build_model, nb_epoch=100, batch_size=128, verbose=0)
+model.fit(x_train, one_hot_train_labels)
 
-predictions = model.predict_proba(X_test)
+### Get prediction
+predictions = model.predict_proba(x_test)
+predictions
+predictions.shape
+
+pd.DataFrame(predictions).to_csv('predictions.csv', index=False)
+# Kaggle 기준 score 2.36. 전체 600등 정도
