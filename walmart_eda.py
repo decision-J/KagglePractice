@@ -59,6 +59,10 @@ p9.ggplot(train, p9.aes(x='ScanCount',fill='ScanCount')) +p9.geom_bar() +p9.scal
 train[train['ScanCount']==-1]["DepartmentDescription"].value_counts().head(10)
 # 반품되는 가장 많은 품목은 Financial Services. 또한 WEAR도 반품이 많이 됨.
 
+#### FinelineNumber
+p9.ggplot(train, p9.aes(x='FinelineNumber',fill='FinelineNumber')) +p9.geom_bar()
+
+
 
 #### EDA 후 알게된 주요 포인트:
 #### 1.여러개의 행이 동일한 사람의 정보. 즉, 같은 Number의 여러 행 정보를 반영하여 모델을 building하여야 함.

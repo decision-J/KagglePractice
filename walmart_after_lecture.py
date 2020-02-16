@@ -1,6 +1,4 @@
-# 1. baseline을 만든 feature에 lecture_note feature 추가
-# 2. RF model try
-# 3. Ensemble try
+# baseline을 만든 feature에 lecture_note feature 추가
 
 import pandas as pd
 import numpy as np
@@ -140,11 +138,11 @@ x_test /= std
 ### def model
 def build_model():
     model = models.Sequential()
-    model.add(layers.Dense(64, activation='relu', input_shape=(x_train.shape[1],)))
-    model.add(layers.Dense(64, activation='relu'))
+    model.add(layers.Dense(128, activation='relu', input_shape=(x_train.shape[1],)))
+    model.add(layers.Dense(128, activation='relu'))
     model.add(layers.Dense(38, activation='softmax'))
 
-    model.compile(optimizer='rmsprop', loss='categorical_crossentropy', metrics=['accuracy'])
+    model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
     return model
 
 ### K-fold
@@ -180,16 +178,36 @@ for i in range(k):
     print(i, ' 폴드 끝남')
 
 ### Score check
-average_acc_history = [
-    np.mean([x[i] for x in all_acc_histories]) for i in range(num_epochs)]
+history_dict = history.history
+loss = history_dict['loss']
+val_loss = history_dict['val_loss']
 
-plt.plot(range(1, len(average_acc_history) + 1), average_acc_history)
+epochs = range(1, len(loss) + 1)
+
+plt.plot(epochs, loss, 'bo', label='Training loss')
+plt.plot(epochs, val_loss, 'b', label = 'valid loss')
+plt.title('T')
 plt.xlabel('Epochs')
-plt.ylabel('Validation ACC')
+plt.ylabel('LOSS')
+plt.legend()
+
+plt.show()
+
+acc = history_dict['accuracy']
+val_acc = history_dict['val_accuracy']
+
+plt.clf()
+plt.plot(epochs, acc, 'bo', label='Training ')
+plt.plot(epochs, val_acc, 'b', label = 'valid ')
+plt.title('T')
+plt.xlabel('Epochs')
+plt.ylabel('ACC')
+plt.legend()
+
 plt.show()
 
 ### Fit the model
-model = KerasClassifier(build_fn=build_model, epochs=40, batch_size=128, verbose=0)
+model = KerasClassifier(build_fn=build_model, epochs=10, batch_size=128, verbose=0)
 model.fit(x_train, one_hot_train_labels)
 
 ### Get prediction
@@ -201,3 +219,6 @@ pd.DataFrame(predictions).to_csv('predictions.csv', index=False)
 # Kaggle 기준 score 7.80. 전체 800등 정도
 # 성능이 엄청 떨어졌다. 왜일까?
 # 변수가 너무 많이 늘어나버려서 64 Dense로는 너무 작은것일까?
+
+# 두번째 시도: Dense 층을 128로 늘림
+# Kaggle 기준 score 2.27. 전체 655등 정도
